@@ -34,7 +34,6 @@ You can also use `listviewer::jsonedit()` to explore it interactively:
 jsonedit(gh_users, mode = "view", elementId = "gh_users")
 ```
 
-
 ### Name and position shortcuts
 
 Basic usage of `purrr::map()`:
@@ -100,13 +99,14 @@ Meet `gh_repos`. It is a list with:
   * several of those list components are, again, a list
 
 ```{r}
-str(gh_repos, max.level = 1)
+str(gh_repos, max= 1)
+str(gh_repos[[1]])
 ```
 
 Explore it interactively:
 
 ```{r echo = FALSE}
-jsonedit(gh_repos, mode = "view", elementId = "gh_repos")
+jsonedit(gh_repos)
 ```
 
 ### Warm up & refresh challenge
@@ -114,7 +114,87 @@ Extrat information from lists: full name of first repo
 
 ```{r}
 gh_repos%>%
-  map_
+  map_chr(list(2,"name"))  # name of second repo
+
+gh_repos%>%
+  map_chr(c(1,3))
+```
+
+
+###Warm up & refresh challenge 2
+Extract information from lists: owner ID of fourth repo for each user
+
+```{r}
+gh_repos%>%
+  map_int(list(4,"owner","id"))
+```
+
+```{r}
+#library(tibble)
+u_id<- gh_repos%>%
+          map_int(list(1,"owner","id"))
+
+gh_repos_named <- gh_repos %>% 
+                      set_names(u_id)
+
+str(gh_repos_named,max.level = 1)
+
+gh_repos_df <- gh_repos_named %>%
+                  enframe("user_id","repository_stuff")
+
+View(gh_repos_df)
+```
+
+### u try 
+
+Create an enfrramed df of rownames being their login
+
+```{r}
+u_login<- gh_repos%>%
+          map_chr(list(1,"owner","login"))
+
+gh_repos_named2 <- gh_repos %>% 
+                      set_names(u_login)
+
+str(gh_repos_named2,max.level = 1)
+
+gh_repos_df2 <- gh_repos_named2 %>%
+                  enframe("user_name","repository_stuff")
+View(gh_repos_df2)
+```
+
+Now normal dplyr functions such as **filter()**,**mutate()** can be now applied on these dataframes.
+```{r}
+gh_repos_df2 %>%
+  filter(user_name %in% c("masalmon","leeper"))%>%
+  mutate(no_of_repos = map_int(repository_stuff,length))%>%
+  jsonedit()
+```
+
+Lets work with the **got_chars** list in repurrrsive package
+```{r}
+library(repurrrsive)
+
+aliases_named <- set_names(map(got_chars,"aliases"),
+                           map(got_chars,"name"))
+map_int(aliases_named , length)
+
+```
+
+Lets use a custom function for mapping
+
+```{r}
+collapse_by_comma <- function(vec_of_strings){
+  paste(vec_of_strings,collapse = ",")
+}
+
+map(aliases_named , collapse_by_comma)
+
+map(aliases_named ,paste,collapse = ", ")
+
+map(aliases_named , function(v_o_s) paste(v_o_s,collapse = ", "))
+
+map(aliases_named,~ paste(.x,collapse = ", "))
 ```
 
 
