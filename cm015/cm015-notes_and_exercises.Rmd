@@ -1,0 +1,537 @@
+---
+title: "Write your own R functions, part 1"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(error = TRUE, collapse = TRUE)
+```
+
+### What and why?
+
+My goal here is to reveal the __process__ a long-time useR employs for writing functions. I also want to illustrate why the process is the way it is. Merely looking at the finished product, e.g. source code for R packages, can be extremely deceiving. Reality is generally much uglier ... but more interesting!
+
+Why are we covering this now, smack in the middle of data aggregation? Powerful machines like `dplyr`, `purrr`, and the built-in `apply` family of functions, are ready and waiting to apply your purpose-built functions to various bits of your data. If you can express your analytical wishes in a function, these tools will give you great power.
+
+### Load the Gapminder data
+
+As usual, load the Gapminder excerpt.
+
+```{r}
+library(gapminder)
+str(gapminder)
+```
+
+### Max - min
+
+Say you've got a numeric vector, and you want to compute the difference between its max and min. `lifeExp` or `pop` or `gdpPercap` are great examples of a typical input. You can imagine wanting to get this statistic after we slice up the Gapminder data by year, country, continent, or combinations thereof.
+
+### Get something that works
+
+First, develop some working code for interactive use, using a representative input. I'll use Gapminder's life expectancy variable.
+
+R functions that will be useful: `min()`, `max()`, `range()`. __Read their documentation.__
+
+```{r}
+## get to know the functions mentioned above
+min(gapminder$lifeExp)
+max(gapminder$lifeExp)
+range(gapminder$lifeExp)
+
+## some natural solutions
+max(gapminder$lifeExp) - min(gapminder$lifeExp)
+with(gapminder, max(lifeExp) - min(lifeExp))
+range(gapminder$lifeExp)[2] - range(gapminder$lifeExp)[1]
+with(gapminder, range(lifeExp)[2] - range(lifeExp)[1])
+diff(range(gapminder$lifeExp))
+```
+
+Internalize this "answer" because our informal testing relies on you noticing departures from this.
+
+#### Skateboard >> perfectly formed rear-view mirror
+
+This image [widely attributed to the Spotify development team](http://blog.fastmonkeys.com/?utm_content=bufferc2d6e&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer) conveys an important point.
+
+![](img/spotify-howtobuildmvp.gif)
+
+Build that skateboard before you build the car or some fancy car part. A limited-but-functioning thing is very useful. It also keeps the spirits high.
+
+This is related to the valuable [Telescope Rule](http://c2.com/cgi/wiki?TelescopeRule):
+
+> It is faster to make a four-inch mirror then a six-inch mirror than to make a six-inch mirror.
+
+### Turn the working interactive code into a function
+
+Add NO new functionality! Just write your very first R function.
+
+```{r}
+max_minus_min <- function(x) max(x) - min(x)
+max_minus_min(gapminder$lifeExp)
+```
+
+Check that you're getting the same answer as you did with your interactive code. Test it eyeball-o-metrically at this point.
+
+### Test your function
+
+#### Test on new inputs
+
+Pick some new artificial inputs where you know (at least approximately) what your function should return.
+
+```{r}
+max_minus_min(1:10)
+max_minus_min(runif(1000))
+```
+
+I know that 10 minus 1 is 9. I know that random uniform [0, 1] variates will be between 0 and 1. Therefore max - min should be less than 1. If I take LOTS of them, max - min should be pretty close to 1.
+
+It is intentional that I tested on integer input as well as floating point. Likewise, I like to use valid-but-random data for this sort of check.
+
+#### Test on real data but *different* real data
+
+Back to the real world now. Two other quantitative variables are lying around: `gdpPercap` and `pop`. Let's have a go.
+
+```{r}
+max_minus_min(gapminder$gdpPercap)
+max_minus_min(gapminder$pop)
+```
+
+Either check these results "by hand" or apply the "does that even make sense?" test.
+
+#### Test on weird stuff
+
+Now we try to break our function. Don't get truly diabolical (yet). Just make the kind of mistakes you can imagine making at 2am when, 3 years from now, you rediscover this useful function you wrote. Give your function inputs it's not expecting.
+
+```{r}
+max_minus_min(gapminder) ## hey sometimes things "just work" on data.frames!
+max_minus_min(gapminder$country) ## factors are kind of like integer vectors, no?
+max_minus_min("eggplants are purple") ## i have no excuse for this one
+```
+
+How happy are you with those error messages? You must imagine that some entire __script__ has failed and that you were hoping to just `source()` it without re-reading it. If a colleague or future you encountered these errors, do you run screaming from the room? How hard is it to pinpoint the usage problem?
+
+#### I will scare you now
+
+Here are some great examples STAT545 students devised during class where the function __should break but it does not.__
+
+```{r}
+max_minus_min(gapminder[c('lifeExp', 'gdpPercap', 'pop')])
+max_minus_min(c(TRUE, TRUE, FALSE, TRUE, TRUE))
+```
+
+In both cases, R's eagerness to make sense of our requests is unfortunately successful. In the first case, a data.frame containing just the quantitative variables is eventually coerced into numeric vector. We can compute max minus min, even though it makes absolutely no sense at all. In the second case, a logical vector is converted to zeroes and ones, which might merit an error or at least a warning.
+
+### Check the validity of arguments
+
+For functions that will be used again -- which is not all of them! -- it is good to check the validity of arguments. This implements a rule from [the Unix philosophy](http://www.faqs.org/docs/artu/ch01s06.html):
+
+> Rule of Repair: When you must fail, fail noisily and as soon as possible.
+
+#### stopifnot
+
+`stopifnot()` is the entry level solution. I use it here to make sure the input `x` is a numeric vector.
+
+```{r}
+mmm <- function(x) {
+  stopifnot(is.numeric(x))
+  max(x) - min(x)
+}
+mmm(gapminder)
+mmm(gapminder$country)
+mmm("eggplants are purple")
+mmm(gapminder[c('lifeExp', 'gdpPercap', 'pop')])
+mmm(c(TRUE, TRUE, FALSE, TRUE, TRUE))
+```
+
+And we see that it catches all of the self-inflicted damage we would like to avoid.
+
+#### if then stop
+
+`stopifnot()` doesn't provide a very good error message. The next approach is very widely used. Put your validity check inside an `if()` statement and call `stop()` yourself, with a custom error message, in the body.
+
+```{r}
+mmm2 <- function(x) {
+  if(!is.numeric(x)) {
+    stop('I am so sorry, but this function only works for numeric input!\n',
+         'You have provided an object of class: ', class(x)[1])
+  }
+  max(x) - min(x)
+}
+mmm2(gapminder)
+```
+
+In addition to a gratuitous apology, the error raised also contains two more pieces of helpful info:
+
+  * *Which* function threw the error.
+  * Hints on how to fix things: expected class of input vs actual class.
+
+If it is easy to do so, I highly recommend this template: "you gave me THIS, but I need THAT".
+
+#### Sidebar: non-programming uses for assertions
+
+Another good use of this pattern is to leave checks behind in data analytical scripts. Consider our repetitive use of Gapminder in this course. Every time we load it, we inspect it, hoping to see the usual stuff. If we were loading from file (vs. a stable data package), we might want to formalize our expectations about the number of rows and columns, the names and flavors of the variables, etc. This would alert us if the data suddenly changed, which can be a useful wake-up call in scripts that you re-run *ad nauseum* on auto-pilot or non-interactively.
+
+### Wrap-up and what's next?
+
+Here's the function we've written so far:
+
+```{r}
+mmm2
+```
+
+What we've accomplished:
+
+  * we've written our first function
+  * we are checking the validity of its input, argument `x`
+  * we've done a good amount of informal testing
+  
+Where to next? In [part 2](block011_write-your-own-function-02.html), we generalize this function to take differences in other quantiles and learn how to set default values for arguments.
+
+
+#Problems for Part 1
+1. Create a new functino mod_ten that takes a number and returns the remainder after dividing by 10.
+- For example: mod_ten(15) should return 5, mod_ten(1001) should return 1
+hint: you can use the modulus operator in R '%%' or come up with your own solution
+
+```{r}
+mod_ten <- function(x){
+  x-as.integer(x/10)*10
+}
+mod_ten(108)
+```
+
+
+2. Add an if then stop into your function that returns an informative error message if the wrong input is added. 
+Optional. Try to break your function.
+```{r}
+mod_ten <- function(x){
+  if(!is.numeric(x)){
+    stop('I am so sorry, but this function only works for numeric input!\n',
+         'You have provided an object of class: ', class(x)[1])
+  }
+  x-as.integer(x/10)*10
+  #x%%10
+}
+mod_ten(1009)
+#mod_ten(gapminder)
+#mod_ten(gapminder$country)
+```
+
+### Restore our max minus min function
+
+Let's keep our previous function around as a baseline.
+
+```{r}
+mmm <- function(x) {
+  stopifnot(is.numeric(x))
+  max(x) - min(x)
+}
+```
+
+### Generalize our function to other quantiles
+
+The max and the min are special cases of a __quantile__. Here are other special cases you may have heard of:
+
+  * median = 0.5 quantile
+  * 1st quartile = 0.25 quantile
+  * 3rd quartile = 0.75 quantile
+  
+If you're familiar with [box plots](http://en.wikipedia.org/wiki/Box_plot), the rectangle typically runs from the 1st quartile to the 3rd quartile, with a line at the median.
+
+If $q$ is the $p$-th quantile of a set of $n$ observations, what does that mean? Approximately $pn$ of the observations are less than $q$ and $(1 - p)n$ are greater than $q$. Yeah, you need to worry about rounding to an integer and less/greater than or equal to, but these details aren't critical here.
+
+Let's generalize our function to take the difference between any two quantiles. We can still consider the max and min, if we like, but we're not limited to that.
+
+### Get something that works, again
+
+The eventual inputs to our new function will be the data `x` and two probabilities.
+
+First, play around with the `quantile()` function. Convince yourself you know how to use it, for example, by cross-checking your results with other built-in functions.
+
+```{r}
+quantile(gapminder$lifeExp)
+quantile(gapminder$lifeExp, probs = 0.5)
+median(gapminder$lifeExp)
+quantile(gapminder$lifeExp, probs = c(0.25, 0.75))
+boxplot(gapminder$lifeExp, plot = FALSE)$stats
+```
+
+Now write a code snippet that takes the difference between two quantiles.
+
+```{r}
+the_probs <- c(0.25, 0.75)
+the_quantiles <- quantile(gapminder$lifeExp, probs = the_probs)
+max(the_quantiles) - min(the_quantiles)
+```
+
+### Turn the working interactive code into a function, again
+
+I'll use `qdiff` as the base of our function's name. I copy the overall structure from our previous "max minus min" work but replace the guts of the function with the more general code we just developed.
+
+```{r}
+qdiff1 <- function(x, probs) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x = x, probs = probs)
+  max(the_quantiles) - min(the_quantiles)
+}
+qdiff1(gapminder$lifeExp, probs = c(0.25, 0.75))
+IQR(gapminder$lifeExp) # hey, we've reinvented IQR
+qdiff1(gapminder$lifeExp, probs = c(0, 1))
+mmm(gapminder$lifeExp)
+```
+
+Again we do some informal tests against familiar results and external implementations.
+
+### Argument names: freedom and conventions
+
+I want you to understand the importance of argument names.
+
+I can name my arguments almost anything I like. Proof:
+
+```{r}
+qdiff2 <- function(zeus, hera) {
+  stopifnot(is.numeric(zeus))
+  the_quantiles <- quantile(x = zeus, probs = hera)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+qdiff2(zeus = gapminder$lifeExp, hera = 0:1)
+```
+
+While I can name my arguments after Greek gods, it's usually a bad idea. Take all opportunities to make things more self-explanatory via meaningful names.
+
+This is better:
+
+```{r}
+qdiff3 <- function(my_x, my_probs=c(0,1)) {
+ stopifnot(is.numeric(my_x))
+  the_quantiles <- quantile(x = my_x, probs = my_probs)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+qdiff3(gapminder$lifeExp,my_probs = c(0.25,0.75))
+```
+
+If you are going to pass the arguments of your function as arguments of a built-in function, consider copying the argument names. Again, the reason is to reduce your cognitive load. This is what I've been doing all along and now you know why:
+
+```{r}
+qdiff1
+```
+
+We took this detour so you could see there is no *structural* relationship between my arguments (`x` and `probs`) and those of `quantile()` (also `x` and `probs`). The similarity or equivalence of the names __accomplishes nothing__ as far as R is concerned; it is solely for the benefit of humans reading, writing, and using the code. Which is very important!
+
+### What a function returns
+
+By this point, I expect someone will have asked about the last line in my function's body. Look above for a reminder of the function's definition.
+
+By default, a function returns the result of the last line of the body. I am just letting that happen with the line `max(the_quantiles) - min(the_quantiles)`. However, there is an explicit function for this: `return()`. I could just as easily make this the last line of my function's body:
+
+```{r eval = FALSE}
+return(max(the_quantiles) - min(the_quantiles))
+```
+
+You absolutely must use `return()` if you want to return early based on some condition, i.e. before execution gets to the last line of the body. Otherwise, you can decide your own conventions about when you use `return()` and when you don't.
+
+### Default values: freedom to NOT specify the arguments
+
+What happens if we call our function but neglect to specify the probabilities?
+
+```{r}
+qdiff1(gapminder$lifeExp)
+```
+
+Oops! At the moment, this causes a fatal error. It can be nice to provide some reasonable default values for certain arguments. In our case, it would be crazy to specify a default value for the primary input `x`, but very kind to specify a default for `probs`.
+
+We started by focusing on the max and the min, so I think those make reasonable defaults. Here's how to specify that in a function definition.
+
+```{r}
+qdiff4 <- function(x, probs = c(0, 1)) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+```
+
+Again we check how the function works, in old examples and new, specifying the `probs` argument and not.
+
+```{r}
+qdiff4(gapminder$lifeExp)
+mmm(gapminder$lifeExp)
+qdiff4(gapminder$lifeExp, c(0.1, 0.9))
+```
+
+### Wrap-up and what's next?
+
+Here's the function we've written so far:
+
+```{r}
+qdiff4
+```
+
+What we've accomplished:
+
+  * we've generalized our first function to take a difference between arbitrary quantiles
+  * we've specified default values for the probabilities that set the quantiles
+  
+Where to next? In [Part 3](block011_write-your-own-function-03.html), we tackle `NA`s, the special `...` argument, and formal unit testing.
+
+###Problems for Part 2
+1.Create a new function similar to our last function mod_x that takes two arguments value and divisor this is a general modulus function that can take any value of divisor. value is the input that is passed through teh fucntion and divisor is the number that value is divide by. mod_x should return the remainder value divided by divisor. Hint: use modulus operator in R '%%'
+
+2. Set the default parameter of divisor to be 10.
+
+3. Add a stopifnot() statement to your function that returns an informative message if the divisor is not an integer.
+
+Optional. Have mod_x return two numbers:
+- 1. the number of times the divisor goes into value(an_integer). Hint: use the integer division operator.
+- 2. The remainder like before
+- Note. return can only one object so you will have to combine them with c() or list()
+```{r}
+mod_x<-function(value,divisor=10){
+  stopifnot(!is.integer(divisor))
+  int=as.integer(value/divisor)
+  mod=value - int*divisor
+  output<-list(quotient=int,remainder=mod)
+}
+result<-mod_x(1001,10)
+result$remainder
+```
+
+### Be proactive about `NA`s
+
+I am being gentle by letting you practice with the Gapminder data. In real life, missing data will make your life a living hell. If you are lucky, it will be properly indicated by the special value `NA`, but don't hold your breath. Many built-in R functions have an `na.rm =` argument through which you can specify how you want to handle `NA`s. Typically the default value is `na.rm = FALSE` and typical default behavior is to either let `NA`s propagate or to raise an error. Let's see how `quantile()` handles `NA`s:
+
+```{r}
+z <- gapminder$lifeExp
+z[3] <- NA
+quantile(gapminder$lifeExp)
+quantile(z)
+quantile(z, na.rm = TRUE)
+```
+
+So `quantile()` simply will not operate in the presence of `NA`s unless `na.rm = TRUE`. How shall we modify our function?
+
+If we wanted to hardwire `na.rm = TRUE`, we could. Focus on our call to `quantile()` inside our function definition.
+
+```{r}
+qdiff5 <- function(x, probs = c(0, 1)) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs, na.rm = TRUE)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+qdiff5(gapminder$lifeExp)
+qdiff5(z)
+```
+
+This works but it is dangerous to invert the default behavior of a well-known built-in function and to provide the user with no way to override this.
+
+We could add an `na.rm =` argument to our own function. We might even enforce our preferred default -- but at least we're giving the user a way to control the behavior around `NA`s.
+
+```{r}
+qdiff6 <- function(x, probs = c(0, 1), na.rm = TRUE) {
+  stopifnot(is.numeric(x))
+  the_quantiles <- quantile(x, probs, na.rm = na.rm)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+qdiff6(gapminder$lifeExp)
+qdiff6(z)
+#qdiff6(z, na.rm = FALSE)
+```
+
+### The useful but mysterious `...` argument
+
+You probably could have lived a long and happy life without knowing there are at least 9 different algorithms for computing quantiles. [Go read about the `type` argument](http://www.rdocumentation.org/packages/stats/functions/quantile) of `quantile()`. TLDR: If a quantile is not unambiguously equal to an observed data point, you must somehow average two data points. You can weight this average different ways, depending on the rest of the data, and `type =` controls this.
+
+Let's say we want to give the user of our function the ability to specify how the quantiles are computed, but we want to accomplish with as little fuss as possible. In fact, we don't even want to clutter our function's interface with this! This calls for the very special `...` argument.
+
+```{r}
+qdiff7 <- function(x, probs = c(0, 1), na.rm = TRUE, ...) {
+  the_quantiles <- quantile(x = x, probs = probs, na.rm = na.rm, ...)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+```
+
+The practical significance of the `type =` argument is virtually nonexistent, so we can't demo with the Gapminder data. Thanks to [\@wrathematics](https://twitter.com/wrathematics), here's a small example where we can (barely) detect a difference due to `type`.
+
+```{r}
+set.seed(1234)
+z <- rnorm(10)
+quantile(z, type = 1)
+quantile(z, type = 4)
+all.equal(quantile(z, type = 1), quantile(z, type = 4))
+```
+
+Now we can call our function, requesting that quantiles be computed in different ways.
+
+```{r}
+qdiff7(z, probs = c(0.25, 0.75), type = 1)
+qdiff7(z, probs = c(0.25, 0.75), type = 4)
+qdiff7(z, probs = c(0.25, 0.75), type = 7)
+```
+
+While the difference may be subtle, __it's there__. Marvel at the fact that we have passed `type = 1` through to `quantile()` *even though it was not a formal argument of our own function*.
+
+The special argument `...` is very useful when you want the ability to pass arbitrary arguments down to another function, but without constantly expanding the formal arguments to your function. This leaves you with a less cluttered function definition and gives you future flexibility to specify these arguments only when you need to.
+
+You will also encounter the `...` argument in many built-in functions -- read up [on `c()`](http://www.rdocumentation.org/packages/base/functions/c) or [`list()`](http://www.rdocumentation.org/packages/base/functions/list) -- and now you have a better sense of what it means. It is not a breezy "and so on and so forth."
+
+### Use `testthat` for formal unit tests
+
+Until now, we've relied on informal tests of our evolving function. If you are going to use a function alot, especially if it is part of a package, it is wise to use formal unit tests.
+
+The [`testthat` package](https://github.com/hadley/testthat) provides excellent facilities for this, with a distinct emphasis on automated unit testing of entire packages. However, we can take it out for a test drive even with our one measly function.
+
+We will construct a test with `test_that()` and, within it, we put one or more *expectations* that check actual against expected results. You simply harden your informal, interactive tests into formal unit tests. Here are some examples of tests and indicative expectations.
+
+```{r}
+library(testthat)
+test_that('invalid args are detected', {
+  expect_error(qdiff7("eggplants are purple"))
+  expect_error(qdiff7(iris))
+  })
+test_that('NA handling works', {
+  expect_error(qdiff7(c(1:5, NA), na.rm = FALSE))
+  expect_equal(qdiff7(c(1:5, NA)), 4)
+})
+```
+
+No news is good news! Let's see what test failure would look like. Let's revert to a version of our function that does no `NA` handling, then test for proper `NA` handling. We can watch it fail.
+
+```{r}
+qdiff_no_NA <- function(x, probs = c(0, 1)) {
+  the_quantiles <- quantile(x = x, probs = probs)
+  return(max(the_quantiles) - min(the_quantiles))
+}
+# test_that('NA handling works', {
+#   expect_that(qdiff_no_NA(c(1:5, NA)), equals(4))
+# })
+
+```
+
+Similar to the advice to use assertions in data analytical scripts, I recommend you use unit tests to monitor the behavior of functions you (or others) will use often. If your tests cover the function's important behavior, then you can edit the internals freely. You'll rest easy in the knowledge that, if you broke anything important, the tests will fail and alert you to the problem. A function that is important enough for unit tests probably also belongs in a package, where there are obvious mechanisms for running the tests as part of overall package checks.
+
+<!--
+
+### other content
+
+match.arg()
+
+defaulting to NULL then checking is.null() and take it from there
+
+-->
+
+### Resources
+
+Hadley Wickham's book [Advanced R](http://adv-r.had.co.nz)
+
+  * Section on [function arguments](http://adv-r.had.co.nz/Functions.html#function-arguments)
+
+Unit testing with `testthat`:
+
+  * On [CRAN](https://cran.r-project.org/web/packages/testthat/index.html), development on [GitHub](https://github.com/hadley/testthat)
+
+Hadley Wickham's [R packages](http://r-pkgs.had.co.nz) book
+
+  * [Testing chapter](http://r-pkgs.had.co.nz/tests.html)
+  
+Article [testthat: Get Started with Testing](https://journal.r-project.org/archive/2011-1/RJournal_2011-1_Wickham.pdf) in The R Journal Vol. 3/1, June 2011. Maybe this is completely superceded by the newer chapter above? Be aware that parts could be out of date, but I recall it was a helpful read.  

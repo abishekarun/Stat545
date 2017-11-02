@@ -1,0 +1,156 @@
+---
+title: "cm016-notes_and_exercises.Rmd"
+output: github_document
+---
+
+#### Purrr lesson for stat 545
+
+Lets define some vectors of type int,logical, double and character.
+```{r}
+(v_log <- c(TRUE, FALSE, FALSE, TRUE))
+(v_int <- 1:4)
+(v_doub <- 1:4 * 1.2)
+(v_char <- letters[1:4])
+```
+
+## index a vector
+
+Access the elements of vector by indices
+```{r}
+
+v_char[c(FALSE, FALSE, TRUE, TRUE)]
+v_char[v_log]
+
+v_doub[2:3]
+v_char[-4]
+
+```
+
+```{r}
+
+v_int[0]
+typeof(v_int[0])
+v_doub[100]
+typeof(v_doub[100])
+
+```
+
+```{r}
+v_log
+as.integer(v_log)
+v_int
+as.numeric(v_int)
+v_doub
+as.character(v_doub)
+as.character(as.numeric(as.integer(v_log)))
+```
+
+
+```{r}
+v_doub_copy <- v_doub
+str(v_doub_copy)
+v_doub_copy[3] <- "uhoh"
+str(v_doub_copy)
+
+```
+
+
+```{r}
+(big_plans <- rep(NA_integer_, 4))
+str(big_plans)
+big_plans[3] <- 5L
+```
+
+Note that big_plans is still integer!
+Note that omitting L results in coercion of big_plans to double
+
+```{r}
+str(big_plans)
+big_plans[1] <- 10
+str(big_plans)
+```
+
+##lists
+
+```{r}
+
+(x<- list(1:3,c("four","five")))
+(y<-list(logical=TRUE,integer=4L,double=4*1.2,character="character"))
+
+(z<-list(letters[26:22],transcendental=c(pi,exp(1)),f=function(x)x^2))
+```
+
+
+Challenge, in list y pull out the second and third elements, 
+in list z oull out all the transcendental numbers.
+
+```{r}
+y[2:3]
+z[2:3]
+typeof(z["transcendental"])
+z$transcendental
+typeof(z[["transcendental"]])
+
+y[["double"]] #double type
+y["double"]   #type list
+```
+
+Consider how to square the integers 1 through n 
+
+```{r}
+n <- 5
+
+#First method
+numbers<-list(1:n)
+lapply(numbers,function(x) x^2)
+
+#Second Method
+(1:n)^2
+
+#Third Method
+res<-rep(NA_integer_,n)
+for(i in seq_len(n)){
+    res[i]<-i^2
+}
+
+exp(v_doub)
+
+(l_doub<-as.list(v_doub))
+
+library(purrr)
+
+map_dbl(l_doub,exp)
+
+
+```
+
+
+The funtions in purrr are of the form **map_**. 
+
+```{r eval=FALSE}
+map(x,f,...)
+## maps all the elements of x with the function f.
+```
+
+```{r}
+library(stringr)
+fruit
+str(fruit)
+```
+
+Challenge is to use map function and a string r function to split all the fruits that have two separate character strings.
+
+```{r}
+fruit %>%
+  map(str_split," ")
+
+fruit %>%
+  map_chr(str_to_upper)
+```
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+A great use of purrr's `map()` functions is to dig information out of a non-rectangular data structure and create a neat data frame. Where do these awkward objects come from? Often as JSON or XML from an API. JSON and XML are two plain text formats for non-rectangular data, i.e. for scenarios where CSV is not an option. If you are lucky it's JSON, which is less aggravating, and readily converts to a list you can work with in R.
+

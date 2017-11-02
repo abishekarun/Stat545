@@ -1,0 +1,155 @@
+---
+title: "cm014 Notes and Exercises"
+date: "October 24, 2017"
+author: "Arun"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# R for strings
+
+```{r}
+mystring <- "surrounded by quotes. That's "
+mystring2 <- 'this is another containing "double quotes"'
+mystring3 <- " A slah \ "
+mystring3
+mystring3 <- " A slah \\ "
+mystring3
+```
+
+### homework 
+
+how do I "string" a single slash?
+
+```{r}
+`mystring4` <- `mystring` # left top back quotes
+mystring4 <- `mystring`
+mystring5 <- 'my_string'
+mystring6 <- "my_string"
+mystring6 == mystring5
+```
+```{r}
+library(singer)
+places <- unique(singer_locations$city)
+str(places)
+nchar(c("City","double","a very long string"))
+nchar(c("",NA," ","   a ","\t")) #write spaces count nchar
+```
+
+## the tools of the trade
+```{r}
+library(tidyverse)
+library(stringr)
+library(glue)
+```
+
+glueing `glue()`
+
+```{r}
+myname <- "zim"
+myage <- 3
+mycolor <- "blue"
+
+
+glue("my name is {myname},","my age 2 years ago is {myage - 2}, and color is {mycolor}")
+paste("my name is ",myname)
+```
+
+indentation
+
+```{r}
+glue("my name is 
+                {myname},
+            ,my age 2 years ago is
+                                  {myage - 2}, 
+",
+mu_nm = "dhhfjs",
+myag = 10)
+```
+
+
+## challenge
+ 
+phrase : today is wednesday, oct 29, 1986 and the sun shines
+Sys.Date()
+glue()
+
+```{r}
+Sys.Date()
+format(Sys.time(), "%1992, %2 %2, %2")
+Sys.time()
+phrase <- "today is {today_date} and the sun shines"
+glue(phrase,
+     today_date = format(Sys.Date(),"%A, %B %d,%Y"))
+```
+
+```{r}
+singer_locations %>% 
+  glue_data("{artist_name} is from {city}.") %>% 
+  head()
+```
+
+### stringr
+
+```{r}
+getNamespaceExports("stringr") %>% 
+  str_view("str_")
+```
+
+```{r}
+getNamespaceExports("stringr") %>% 
+  str_subset("str_")
+```
+```{r}
+places <- unique(singer_locations$city)
+```
+
+and get all the places containing the string "york"
+
+```{r}
+places %>% 
+  str_to_lower() %>% 
+  str_subset("york")
+```
+
+### regular expressions
+
+```{r}
+places %>% 
+  str_subset("[Yyb]ork")
+```
+```{r}
+places %>% 
+  str_subset(coll("York",ignore_case=TRUE))
+```
+
+```{r}
+places %>% 
+  str_subset("York$") #york must be the end of the work, get rid of yorkshire
+```
+
+```{r}
+places %>% 
+  str_subset("^York")
+```
+
+### challenge
+
+```{r}
+"[:digit:]"
+places %>% 
+  str_subset("[:digit:]")
+```
+
+```{r}
+places %>% 
+  str_subset("B.a*") # a? a+ a*
+```
+```{r}
+places %>% 
+  str_subset("[Nn]ew [Yy]ork")
+```
+

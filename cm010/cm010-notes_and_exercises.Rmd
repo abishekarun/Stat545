@@ -1,0 +1,105 @@
+---
+title: "cm010 Notes and Exercises: Table Joins"
+date: '2017-10-05'
+output: github_document
+---
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyverse))
+```
+
+
+The different join functions that are available.
+```{r}
+left_join()
+full_join()
+inner_join()
+semi_join()
+anti_join()
+```
+
+Install the singer library from github directly.
+```{r}
+install.packages("devtools")
+library(devtools)
+install_github("joeyBernhardt/singer")
+```
+
+Load the singer library.
+```{r}
+library(singer)
+```
+
+Check the songs and locations dataset.
+```{r}
+View(songs)
+View(locations)
+glimpse(songs)
+glimpse(locations)
+```
+
+#Release and Year 
+
+Produce a dataframe with all the albums('release'), the artists('artist_name') and the year('year') in which that album was published.
+
+```{r}
+relartyear<-inner_join(locations,songs,by=c("title","artist_name"))%>%
+  select(release,artist_name,year)
+relartyear
+```
+
+Challenge 1
+Get the number of releases per year
+
+```{r}
+inner_join(locations,songs,by=c("title","artist_name"))%>%
+  select(release,artist_name,year)%>%
+  group_by(year)%>%
+  summarize(number_of_releases=length(release))
+
+inner_join(songs,locations,by="title")%>%
+  count(year)
+```
+
+#RESHAPING
+
+```{r}
+data("singer_locations")
+glimpse(singer_locations)
+```
+
+**WIDE** dataframe
+**LONG** dataframe
+
+```{r}
+View(singer_locations)
+```
+
+year,artist_hotttnesss, artist_familiarity,duration
+```{r}
+hfd_y <- singer_locations%>%
+                  select(year,artist_hotttnesss, artist_familiarity,duration)
+hfd_y%>%
+  filter(year>1900)%>%
+  ggplot(aes(x = year,y = duration))+
+  geom_point()
+```
+
+package 'tidyr', 'gather()' : from wide to long
+
+```{r}
+hfd_y %>%
+      filter(year>1900)%>%
+      gather(key="Measure", value = "Units", artist_hotttnesss:duration)%>%
+      ggplot(aes(x=year,y=Units))+
+      geom_point()+
+      facet_wrap(~Measure, scales = "free")
+
+#Plot the first two graphs with different scale..
+```
+
+
+
+
+

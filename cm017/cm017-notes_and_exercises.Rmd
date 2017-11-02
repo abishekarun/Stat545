@@ -1,0 +1,120 @@
+---
+title: "cm017-notes_and_exercises.Rmd"
+output: github_document
+---
+
+Here we explore some lists obtained from the [GitHub API](https://developer.github.com/v3/). 
+
+Load the packages.
+
+```{r message = FALSE}
+library(repurrrsive)
+library(listviewer)
+library(jsonlite)
+library(dplyr)
+library(tibble)
+library(purrr)
+```
+
+### Get several GitHub users
+
+`gh_users` is *a recursive list*:
+
+  * one component for each of the 6 GitHub users
+  * each component is, in turn, a list with info on the user
+
+```{r}
+str(gh_users, max.level = 1)
+str(gh_users[[1]], list.len = 6)
+```
+
+You can also use `listviewer::jsonedit()` to explore it interactively:
+
+```{r echo = FALSE}
+jsonedit(gh_users, mode = "view", elementId = "gh_users")
+```
+
+
+### Name and position shortcuts
+
+Basic usage of `purrr::map()`:
+
+```{r eval = FALSE}
+map(gh_users,"login")
+gh_users%>%
+  map(18)
+```
+
+
+### Extract multiple values
+
+Get user's name and GitHub username for a single user:
+
+```{r}
+gh_users[[3]][c("name", "login", "id", "location")]
+```
+
+The function `.f` will be `[`. And we finally get to use `...`! 
+
+```{r}
+x <- map(gh_users, `[`, c("login", "name", "id", "location"))
+x[[1]]$location
+```
+
+Some people find this ugly and might prefer the `extract()` function from magrittr.
+
+```{r}
+x <- map(gh_users, magrittr::extract, c("login", "name", "id", "location"))
+str(x[3:4])
+```
+
+
+### Data frame output
+
+`map_df()`
+
+```{r}
+map_df(gh_users, `[`, c("login", "name", "id", "location"))
+```
+
+We can also explicitly specify type and build your data frame the usual way.
+
+```{r}
+gh_users %>% {
+  tibble(
+       login = map_chr(., "login"),
+        name = map_chr(., "name"),
+          id = map_int(., "id"),
+    location = map_chr(., "location")
+  )
+}
+```
+
+
+### Repositories for each user
+
+Meet `gh_repos`. It is a list with:
+
+  * one component for each of our 6 GitHub users
+  * each component is another list of that user's repositories (or just the first 30, if user has more than 30)
+  * several of those list components are, again, a list
+
+```{r}
+str(gh_repos, max.level = 1)
+```
+
+Explore it interactively:
+
+```{r echo = FALSE}
+jsonedit(gh_repos, mode = "view", elementId = "gh_repos")
+```
+
+### Warm up & refresh challenge
+Extrat information from lists: full name of first repo
+
+```{r}
+gh_repos%>%
+  map_
+```
+
+
