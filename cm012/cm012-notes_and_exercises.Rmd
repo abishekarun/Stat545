@@ -1,0 +1,124 @@
+---
+title: "oct_12"
+author: "Arun"
+date: "2017/10/12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(singer)
+library(tidyverse)
+```
+
+```{r}
+typeof(`%>%`)
+class(`%>%`)
+typeof(1)
+class(1)
+typeof('1')
+class('1')
+class("1")
+class(3.2)
+typeof(3.2)
+typeof(TRUE)
+class(TRUE)
+typeof(lm)
+typeof(c)
+class(c)
+typeof(singer_locations)
+class(singer_locations)
+my_plot <- singer_locations %>% 
+  ggplot(aes(x=year,y=duration))
+class(my_plot)
+typeof(my_plot)
+x <- list(numb=1,colo='red',plot=my_plot)
+typeof(x)
+class(x)
+str(x)
+```
+# Matrix
+my_Cat <- matrix(data,nrow = rows,ncol = cols)
+```{r}
+my_cat <- matrix(c(1,2,3,4),nrow=2,ncol = 2,byrow=TRUE)
+my_cat
+my_cat <- matrix(c(1,2,"a","b"),nrow=2,ncol = 2,byrow=FALSE)
+my_cat
+data("singer_locations")
+```
+
+## change one entry of singer locations from one type to different type
+```{r}
+trychange <- singer_locations 
+  trychange[1,8] <- "zim"
+View(trychange)
+glimpse(trychange)
+```
+
+```{r}
+mean(singer_locations$duration,na.rm = TRUE)
+mean(trychange[-1,]$duration,na.rm = TRUE) #remove first row
+```
+# factors
+library(gapminder)
+glimpse(gapminder)
+```{r}
+install.packages("forcats")
+library(forcats)
+library(singer)
+```
+```{r}
+# glimpse(singer_locations)
+sl <- singer_locations %>% 
+  mutate(art_name_factor = as.factor(artist_name))
+glimpse(sl)
+```
+```{r}
+sl <- sl %>% 
+  mutate(art_name_factor_base = factor(artist_name))
+glimpse(sl)
+```
+
+```{r}
+x <- c("a","c","b")
+as.factor(x)
+factor(x)#modify location, no!
+```
+```{r}
+sl %>% 
+  mutate(top_an = fct_lump(art_name_factor,n=2)) %>% 
+  count(top_an) %>% 
+  arrange(-n)
+```
+### homework: plot mean duration by artist with
+### and without lumping
+... %>% 
+summarise(mean_duration = mean(duration)) %>% 
+ggplot(aes(x = artist_name,...))+
+......
+
+```{r}
+sl <- sl %>% 
+mutate(city_factor = ifelse(is.na(city),
+                            "Missing_information",
+                            city),
+  city_factor = as_factor(city_factor))
+glimpse(sl)
+```
+```{r}
+sl %>% 
+  mutate(top_cities = fct_lump(city_factor,n=7)) %>% 
+  count(top_cities)
+```
+
+forcats::
+# use forcats to clean up the city stuff
+# reading and writing to file
+
+read_csv()
+install.packages("readxl")
+readxl
+write_csv() #write from memory to file
+readlx::read_xlsx
